@@ -107,7 +107,7 @@ async function testChatSystem() {
         nick: "cluster_testdb_user",
         joinedAt: new Date(),
         connectionType: "mongodb",
-        mongoUri: MONGODB_URI,
+        mongoUri: "mongodb+srv://test:test@cluster.mongodb.net/testdb",
         cluster: {
           name: "cluster",
           database: "testdb",
