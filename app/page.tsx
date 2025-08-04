@@ -123,9 +123,9 @@ export default function LoginPage() {
   }
 
   const ThemeIcon = () => {
-    if (theme === "dark") return <Moon className="w-4 h-4" />
-    if (theme === "light") return <Sun className="w-4 h-4" />
-    return <Monitor className="w-4 h-4" />
+    if (theme === "dark") return <Moon className="lucide lucide-moon w-4 h-4" />
+    if (theme === "light") return <Sun className="lucide lucide-moon w-4 h-4" />
+    return <Monitor className="lucide lucide-moon w-4 h-4" />
   }
 
   const getNextTheme = () => {

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { MongoClient } from "mongodb"
+import { LRUCache } from 'lru-cache'
 
+const connectionCache = new LRUCache({ max: 100, ttl: 1000 * 60 * 10 }) // 10 minutos
 const SYSTEM_MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017"
 const SYSTEM_DB_NAME = "chatapp_system"
 
@@ -15,10 +17,23 @@ export async function GET(request: Request) {
 
     console.log(`📋 Buscando salas criadas por: ${creator}`)
 
-    const systemClient = new MongoClient(SYSTEM_MONGODB_URI)
-    await systemClient.connect()
+    // const systemClient = new MongoClient(SYSTEM_MONGODB_URI)
+    // await systemClient.connect()
+    let systemDb = null;
+    const cachedSystemDb = connectionCache.get("SYSTEM_DB")
+    if (cachedSystemDb) {
+      systemDb = cachedSystemDb
+      console.log(`🔗 Usando conexão em cache para o sistema auxiliar`)
+    } else {
+      const systemClient = new MongoClient(SYSTEM_MONGODB_URI)
+      console.log(`Conectando ao MongoDB: ${SYSTEM_MONGODB_URI}`)
+      await systemClient.connect()
+      systemDb = systemClient.db(SYSTEM_DB_NAME)
+      console.log(`✅ Conectado ao MongoDB database: ${SYSTEM_DB_NAME}`)
+      connectionCache.set("SYSTEM_DB", systemDb)
+    }
 
-    const systemDb = systemClient.db(SYSTEM_DB_NAME)
+    // const systemDb = systemClient.db(SYSTEM_DB_NAME)
     const roomsRegistry = systemDb.collection("rooms_registry")
 
     // Buscar salas criadas pelo usuário nas últimas 7 dias
@@ -38,7 +53,7 @@ export async function GET(request: Request) {
 
     // Enriquecer dados com informações do MongoDB do usuário
     const enrichedRooms = await Promise.all(
-      myRooms.map(async (room) => {
+      myRooms.map(async (room: { systemMetadata: { messageCount: any; lastActivity: any }; createdAt: any; participants: any; userMongoInfo: { mongoUri: string; actualDbName: any; dbName: any }; roomId: any; createdBy: any; maxParticipants: any; status: any }) => {
         let detailedInfo = {
           messageCount: room.systemMetadata?.messageCount || 0,
           lastActivity: room.systemMetadata?.lastActivity || room.createdAt,
@@ -68,7 +83,7 @@ export async function GET(request: Request) {
             await userClient.close()
           }
         } catch (userDbError) {
-          console.warn(`⚠️ Erro ao acessar dados detalhados da sala ${room.roomId}:`, userDbError.message)
+          console.warn(`⚠️ Erro ao acessar dados detalhados da sala ${room.roomId}:`, userDbError)
           // Continuar com dados do sistema auxiliar
         }
 
@@ -87,7 +102,7 @@ export async function GET(request: Request) {
       }),
     )
 
-    await systemClient.close()
+    // await systemClient.close()
 
     return NextResponse.json({
       rooms: enrichedRooms,
